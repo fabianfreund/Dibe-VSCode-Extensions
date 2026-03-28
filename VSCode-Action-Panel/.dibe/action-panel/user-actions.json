@@ -1,0 +1,11 @@
+{
+  "categories": [
+    {
+      "id": "custom",
+      "label": "Custom",
+      "description": "User-managed actions",
+      "order": 1000,
+      "actions": []
+    }
+  ]
+}

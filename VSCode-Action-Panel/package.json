@@ -1,0 +1,99 @@
+{
+  "name": "action-panel",
+  "displayName": "Action Panel",
+  "description": "A simple VS Code sidebar that reads actions from .dibe/action-panel and runs them in terminals.",
+  "version": "0.0.1",
+  "publisher": "fabianfreund",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onView:actionPanel.sidebar",
+    "onCommand:actionPanel.refresh",
+    "onCommand:actionPanel.openConfig",
+    "onCommand:actionPanel.addUserAction"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "actionPanel",
+          "title": "Action Panel",
+          "icon": "media/action-panel.svg"
+        }
+      ]
+    },
+    "views": {
+      "actionPanel": [
+        {
+          "id": "actionPanel.sidebar",
+          "name": "Actions"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "actionPanel.refresh",
+        "title": "Action Panel: Refresh"
+      },
+      {
+        "command": "actionPanel.openConfig",
+        "title": "Action Panel: Open Config"
+      },
+      {
+        "command": "actionPanel.addUserAction",
+        "title": "Action Panel: Add User Action"
+      },
+      {
+        "command": "actionPanel.runAction",
+        "title": "Action Panel: Run Action",
+        "icon": {
+          "light": "media/play-light.svg",
+          "dark": "media/play-dark.svg"
+        }
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "actionPanel.refresh",
+          "when": "view == actionPanel.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "actionPanel.openConfig",
+          "when": "view == actionPanel.sidebar",
+          "group": "navigation"
+        },
+        {
+          "command": "actionPanel.addUserAction",
+          "when": "view == actionPanel.sidebar",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "actionPanel.runAction",
+          "when": "view == actionPanel.sidebar && viewItem == actionPanel.action",
+          "group": "inline"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "build": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package",
+    "pretest": "npm run build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/vscode": "^1.90.0",
+    "@vscode/vsce": "^3.2.2",
+    "typescript": "^5.7.3"
+  }
+}

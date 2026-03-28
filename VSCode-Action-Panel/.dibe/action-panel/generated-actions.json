@@ -1,0 +1,58 @@
+{
+  "categories": [
+    {
+      "id": "setup",
+      "label": "Setup",
+      "description": "Bootstrap the local extension workspace",
+      "order": 100,
+      "actions": [
+        {
+          "id": "npm-install",
+          "label": "npm install",
+          "command": "npm install",
+          "description": "Install extension dependencies"
+        }
+      ]
+    },
+    {
+      "id": "development",
+      "label": "Development",
+      "description": "Build and iterate on the extension",
+      "order": 200,
+      "actions": [
+        {
+          "id": "npm-run-build",
+          "label": "npm run build",
+          "command": "npm run build",
+          "description": "Compile the extension"
+        },
+        {
+          "id": "npm-run-watch",
+          "label": "npm run watch",
+          "command": "npm run watch",
+          "description": "Compile continuously while editing"
+        }
+      ]
+    },
+    {
+      "id": "release",
+      "label": "Release",
+      "description": "Package and install the local extension build",
+      "order": 300,
+      "actions": [
+        {
+          "id": "npm-run-package",
+          "label": "npm run package",
+          "command": "npm run package",
+          "description": "Create the VSIX package"
+        },
+        {
+          "id": "install-local-vsix",
+          "label": "Install local VSIX",
+          "command": "code --install-extension \"$(ls -t action-panel-*.vsix | head -n 1)\"",
+          "description": "Install the newest packaged extension into VS Code"
+        }
+      ]
+    }
+  ]
+}
