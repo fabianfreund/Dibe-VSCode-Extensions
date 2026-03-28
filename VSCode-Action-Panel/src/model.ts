@@ -39,6 +39,8 @@ export interface LoadedActionData {
 export const ACTION_PANEL_DIR = ".dibe/action-panel";
 export const GENERATED_ACTIONS_FILE = "generated-actions.json";
 export const USER_ACTIONS_FILE = "user-actions.json";
+export const SKILL_DIR = ".skill/vs-code-action-panel";
+export const SKILL_FILE = "SKILL.md";
 
 const DEFAULT_GENERATED_DATA: ActionPanelFile = {
   categories: [
@@ -71,12 +73,39 @@ const DEFAULT_USER_DATA: ActionPanelFile = {
   ]
 };
 
+const DEFAULT_SKILL_CONTENT = `---
+name: vs-code-action-panel
+description: Curate .dibe/action-panel/generated-actions.json for this workspace. Keep useful generated actions, remove stale ones, and never overwrite user-owned actions in user-actions.json.
+---
+
+# VS Code Action Panel
+
+Use this skill when you want Codex to maintain the generated actions for this workspace.
+
+## What to edit
+
+- \`.dibe/action-panel/generated-actions.json\`
+
+Do not overwrite:
+
+- \`.dibe/action-panel/user-actions.json\`
+
+## Workflow
+
+1. Inspect the workspace before changing actions.
+2. Keep setup, build, test, dev, packaging, and release actions that are clearly valid.
+3. Remove stale generated actions that no longer match the repo.
+4. Keep labels compact and commands practical.
+5. Preserve user-owned actions by leaving \`user-actions.json\` alone.
+`;
+
 export async function ensureActionPanelFiles(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
   const directoryUri = getActionPanelDirectoryUri(workspaceFolder);
   await vscode.workspace.fs.createDirectory(directoryUri);
 
   await ensureFile(workspaceFolder, GENERATED_ACTIONS_FILE, DEFAULT_GENERATED_DATA);
   await ensureFile(workspaceFolder, USER_ACTIONS_FILE, DEFAULT_USER_DATA);
+  await ensureSkillFile(workspaceFolder);
 }
 
 export async function loadActionData(workspaceFolder: vscode.WorkspaceFolder): Promise<LoadedActionData> {
@@ -132,12 +161,16 @@ export async function openActionPanelDirectory(workspaceFolder: vscode.Workspace
   await ensureActionPanelFiles(workspaceFolder);
   const generatedUri = getActionPanelFileUri(workspaceFolder, GENERATED_ACTIONS_FILE);
   const userUri = getActionPanelFileUri(workspaceFolder, USER_ACTIONS_FILE);
+  const skillUri = getSkillFileUri(workspaceFolder);
 
   const generatedDocument = await vscode.workspace.openTextDocument(generatedUri);
   await vscode.window.showTextDocument(generatedDocument, { preview: false });
 
   const userDocument = await vscode.workspace.openTextDocument(userUri);
   await vscode.window.showTextDocument(userDocument, { preview: false });
+
+  const skillDocument = await vscode.workspace.openTextDocument(skillUri);
+  await vscode.window.showTextDocument(skillDocument, { preview: false });
 }
 
 function getActionPanelDirectoryUri(workspaceFolder: vscode.WorkspaceFolder): vscode.Uri {
@@ -146,6 +179,14 @@ function getActionPanelDirectoryUri(workspaceFolder: vscode.WorkspaceFolder): vs
 
 function getActionPanelFileUri(workspaceFolder: vscode.WorkspaceFolder, fileName: string): vscode.Uri {
   return vscode.Uri.joinPath(getActionPanelDirectoryUri(workspaceFolder), fileName);
+}
+
+function getSkillDirectoryUri(workspaceFolder: vscode.WorkspaceFolder): vscode.Uri {
+  return vscode.Uri.joinPath(workspaceFolder.uri, SKILL_DIR);
+}
+
+function getSkillFileUri(workspaceFolder: vscode.WorkspaceFolder): vscode.Uri {
+  return vscode.Uri.joinPath(getSkillDirectoryUri(workspaceFolder), SKILL_FILE);
 }
 
 async function ensureFile(
@@ -160,6 +201,19 @@ async function ensureFile(
   } catch {
     const contents = JSON.stringify(defaultData, null, 2);
     await vscode.workspace.fs.writeFile(fileUri, Buffer.from(contents, "utf8"));
+  }
+}
+
+async function ensureSkillFile(workspaceFolder: vscode.WorkspaceFolder): Promise<void> {
+  const directoryUri = getSkillDirectoryUri(workspaceFolder);
+  const fileUri = getSkillFileUri(workspaceFolder);
+
+  await vscode.workspace.fs.createDirectory(directoryUri);
+
+  try {
+    await vscode.workspace.fs.stat(fileUri);
+  } catch {
+    await vscode.workspace.fs.writeFile(fileUri, Buffer.from(DEFAULT_SKILL_CONTENT, "utf8"));
   }
 }
 

@@ -12,12 +12,17 @@ import {
 } from "./model";
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  const provider = new ActionPanelProvider();
+  const currentVersion = getExtensionVersion(context);
+  const installState = await updateInstallState(context, currentVersion);
+  const treeProvider = new ActionPanelTreeProvider(installState);
 
   context.subscriptions.push(
-    vscode.window.registerTreeDataProvider("actionPanel.sidebar", provider),
+    vscode.window.registerTreeDataProvider("actionPanel.sidebar", treeProvider),
     vscode.commands.registerCommand("actionPanel.refresh", async () => {
-      await provider.refresh();
+      await treeProvider.refresh();
+    }),
+    vscode.commands.registerCommand("actionPanel.search", async () => {
+      await showActionSearch();
     }),
     vscode.commands.registerCommand("actionPanel.openConfig", async () => {
       const workspaceFolder = getWorkspaceFolder();
@@ -26,7 +31,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
 
       await openActionPanelDirectory(workspaceFolder);
-      await provider.refresh();
+      await treeProvider.refresh();
     }),
     vscode.commands.registerCommand("actionPanel.addUserAction", async () => {
       const workspaceFolder = getWorkspaceFolder();
@@ -80,7 +85,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       };
 
       await addUserAction(workspaceFolder, action, categoryLabel);
-      await provider.refresh();
+      await treeProvider.refresh();
       vscode.window.showInformationMessage(`Added "${label}" to ${categoryLabel}.`);
     }),
     vscode.commands.registerCommand("actionPanel.runAction", async (action: MergedActionDefinition) => {
@@ -95,24 +100,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       });
 
       terminal.show(true);
-      const commandLine = buildCommandLine(action);
-      terminal.sendText(commandLine, true);
+      terminal.sendText(buildCommandLine(action), true);
     })
   );
 
-  await provider.refresh();
+  const watcher = vscode.workspace.createFileSystemWatcher("**/.dibe/action-panel/*.json");
+  context.subscriptions.push(
+    watcher,
+    watcher.onDidChange(() => void treeProvider.refresh()),
+    watcher.onDidCreate(() => void treeProvider.refresh()),
+    watcher.onDidDelete(() => void treeProvider.refresh())
+  );
+
+  await treeProvider.refresh();
 }
 
 export function deactivate(): void {}
 
-class ActionPanelProvider implements vscode.TreeDataProvider<ActionPanelItem> {
+class ActionPanelTreeProvider implements vscode.TreeDataProvider<ActionPanelItem> {
   private readonly onDidChangeTreeDataEmitter = new vscode.EventEmitter<ActionPanelItem | undefined>();
   private actionData: LoadedActionData = { categories: [] };
 
   readonly onDidChangeTreeData = this.onDidChangeTreeDataEmitter.event;
 
+  constructor(private readonly installState: InstallState) {}
+
   async refresh(): Promise<void> {
-    const workspaceFolder = getWorkspaceFolder();
+    const workspaceFolder = getWorkspaceFolder(false);
     if (!workspaceFolder) {
       this.actionData = { categories: [] };
       this.onDidChangeTreeDataEmitter.fire(undefined);
@@ -137,15 +151,14 @@ class ActionPanelProvider implements vscode.TreeDataProvider<ActionPanelItem> {
 
   getChildren(element?: ActionPanelItem): Thenable<ActionPanelItem[]> {
     if (!element) {
-      return Promise.resolve(
-        this.actionData.categories.map((category) => new CategoryTreeItem(category))
-      );
+      return Promise.resolve([
+        new UpgradeStatusTreeItem(this.installState),
+        ...this.actionData.categories.map((category) => new CategoryTreeItem(category))
+      ]);
     }
 
     if (element instanceof CategoryTreeItem) {
-      return Promise.resolve(
-        element.category.actions.map((action) => new ActionTreeItem(action))
-      );
+      return Promise.resolve(element.category.actions.map((action) => new ActionTreeItem(action)));
     }
 
     return Promise.resolve([]);
@@ -153,6 +166,20 @@ class ActionPanelProvider implements vscode.TreeDataProvider<ActionPanelItem> {
 }
 
 abstract class ActionPanelItem extends vscode.TreeItem {}
+
+class UpgradeStatusTreeItem extends ActionPanelItem {
+  constructor(installState: InstallState) {
+    const label = installState.isUpgrade && installState.previousVersion
+      ? `Updated from ${installState.previousVersion} to ${installState.currentVersion}`
+      : `Installed version ${installState.currentVersion}`;
+
+    super(label, vscode.TreeItemCollapsibleState.None);
+    this.contextValue = "actionPanel.status";
+    this.description = "Use the search icon in the title bar";
+    this.tooltip = label;
+    this.iconPath = new vscode.ThemeIcon("info");
+  }
+}
 
 class CategoryTreeItem extends ActionPanelItem {
   constructor(readonly category: MergedActionCategory) {
@@ -168,9 +195,9 @@ class ActionTreeItem extends ActionPanelItem {
   constructor(readonly action: MergedActionDefinition) {
     super(action.label, vscode.TreeItemCollapsibleState.None);
     this.contextValue = "actionPanel.action";
-    this.description = action.description;
+    this.description = action.command;
     this.tooltip = new vscode.MarkdownString(
-      [`${action.command}`, action.description].filter(Boolean).join("\n\n")
+      [`**${action.command}**`, action.description].filter(Boolean).join("\n\n")
     );
     this.iconPath = new vscode.ThemeIcon("play-circle");
     this.command = {
@@ -181,10 +208,20 @@ class ActionTreeItem extends ActionPanelItem {
   }
 }
 
-function getWorkspaceFolder(): vscode.WorkspaceFolder | undefined {
+interface ActionQuickPickItem extends vscode.QuickPickItem {
+  action: MergedActionDefinition;
+}
+
+interface InstallState {
+  currentVersion: string;
+  previousVersion?: string;
+  isUpgrade: boolean;
+}
+
+function getWorkspaceFolder(showWarning = true): vscode.WorkspaceFolder | undefined {
   const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 
-  if (!workspaceFolder) {
+  if (!workspaceFolder && showWarning) {
     void vscode.window.showWarningMessage("Action Panel requires an open workspace folder.");
   }
 
@@ -205,4 +242,60 @@ function resolveWorkingDirectory(
 function buildCommandLine(action: MergedActionDefinition): string {
   const extraArgs = action.args?.join(" ") ?? "";
   return [action.command, extraArgs].filter(Boolean).join(" ");
+}
+
+async function showActionSearch(): Promise<void> {
+  const workspaceFolder = getWorkspaceFolder();
+  if (!workspaceFolder) {
+    return;
+  }
+
+  try {
+    await ensureActionPanelFiles(workspaceFolder);
+    const actionData = await loadActionData(workspaceFolder);
+    const items: ActionQuickPickItem[] = actionData.categories.flatMap((category) =>
+      category.actions.map((action) => ({
+        label: action.label,
+        description: category.label,
+        detail: action.command,
+        action
+      }))
+    );
+
+    const selection = await vscode.window.showQuickPick(items, {
+      matchOnDescription: true,
+      matchOnDetail: true,
+      placeHolder: "Search actions"
+    });
+
+    if (selection) {
+      await vscode.commands.executeCommand("actionPanel.runAction", selection.action);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`Action Panel search failed: ${message}`);
+  }
+}
+
+function getExtensionVersion(context: vscode.ExtensionContext): string {
+  const rawVersion = context.extension.packageJSON.version;
+  return typeof rawVersion === "string" && rawVersion.trim() !== "" ? rawVersion : "0.0.0";
+}
+
+async function updateInstallState(
+  context: vscode.ExtensionContext,
+  currentVersion: string
+): Promise<InstallState> {
+  const previousVersion = context.globalState.get<string>("actionPanel.installedVersion");
+  const isUpgrade = !!previousVersion && previousVersion !== currentVersion;
+
+  if (previousVersion !== currentVersion) {
+    await context.globalState.update("actionPanel.installedVersion", currentVersion);
+  }
+
+  return {
+    currentVersion,
+    previousVersion,
+    isUpgrade
+  };
 }

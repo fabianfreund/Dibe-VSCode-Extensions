@@ -2,7 +2,7 @@
   "name": "action-panel",
   "displayName": "Action Panel",
   "description": "A simple VS Code sidebar that reads actions from .dibe/action-panel and runs them in terminals.",
-  "version": "0.0.1",
+  "version": "0.1.4",
   "publisher": "fabianfreund",
   "engines": {
     "vscode": "^1.90.0"
@@ -12,6 +12,7 @@
   ],
   "activationEvents": [
     "onView:actionPanel.sidebar",
+    "onCommand:actionPanel.search",
     "onCommand:actionPanel.refresh",
     "onCommand:actionPanel.openConfig",
     "onCommand:actionPanel.addUserAction"
@@ -37,16 +38,24 @@
     },
     "commands": [
       {
+        "command": "actionPanel.search",
+        "title": "Action Panel: Search",
+        "icon": "$(search)"
+      },
+      {
         "command": "actionPanel.refresh",
-        "title": "Action Panel: Refresh"
+        "title": "Action Panel: Refresh",
+        "icon": "$(refresh)"
       },
       {
         "command": "actionPanel.openConfig",
-        "title": "Action Panel: Open Config"
+        "title": "Action Panel: Open Config",
+        "icon": "$(folder-opened)"
       },
       {
         "command": "actionPanel.addUserAction",
-        "title": "Action Panel: Add User Action"
+        "title": "Action Panel: Add User Action",
+        "icon": "$(add)"
       },
       {
         "command": "actionPanel.runAction",
@@ -59,6 +68,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "actionPanel.search",
+          "when": "view == actionPanel.sidebar",
+          "group": "navigation"
+        },
         {
           "command": "actionPanel.refresh",
           "when": "view == actionPanel.sidebar",
@@ -74,13 +88,6 @@
           "when": "view == actionPanel.sidebar",
           "group": "navigation"
         }
-      ],
-      "view/item/context": [
-        {
-          "command": "actionPanel.runAction",
-          "when": "view == actionPanel.sidebar && viewItem == actionPanel.action",
-          "group": "inline"
-        }
       ]
     }
   },
@@ -95,5 +102,8 @@
     "@types/vscode": "^1.90.0",
     "@vscode/vsce": "^3.2.2",
     "typescript": "^5.7.3"
+  },
+  "dependencies": {
+    "dibe-sync-skills": "^0.1.1"
   }
 }

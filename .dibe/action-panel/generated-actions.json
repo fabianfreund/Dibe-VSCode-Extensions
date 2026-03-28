@@ -1,0 +1,63 @@
+{
+  "categories": [
+    {
+      "id": "setup",
+      "label": "Setup",
+      "description": "Bootstrap the Action Panel extension workspace",
+      "order": 100,
+      "actions": [
+        {
+          "id": "npm-install",
+          "label": "npm install",
+          "command": "npm install",
+          "description": "Install extension dependencies",
+          "workingDirectory": "VSCode-Action-Panel"
+        }
+      ]
+    },
+    {
+      "id": "development",
+      "label": "Development",
+      "description": "Build and watch the extension during development",
+      "order": 200,
+      "actions": [
+        {
+          "id": "npm-run-build",
+          "label": "npm run build",
+          "command": "npm run build",
+          "description": "Compile the extension",
+          "workingDirectory": "VSCode-Action-Panel"
+        },
+        {
+          "id": "npm-run-watch",
+          "label": "npm run watch",
+          "command": "npm run watch",
+          "description": "Rebuild on file changes",
+          "workingDirectory": "VSCode-Action-Panel"
+        }
+      ]
+    },
+    {
+      "id": "release",
+      "label": "Release",
+      "description": "Package and install the local VSIX build",
+      "order": 300,
+      "actions": [
+        {
+          "id": "npm-run-package",
+          "label": "npm run package",
+          "command": "npm run package",
+          "description": "Create the extension VSIX package",
+          "workingDirectory": "VSCode-Action-Panel"
+        },
+        {
+          "id": "install-local-vsix",
+          "label": "Install local VSIX",
+          "command": "code --install-extension action-panel-0.0.1.vsix",
+          "description": "Install the built Action Panel VSIX into VS Code",
+          "workingDirectory": "VSCode-Action-Panel"
+        }
+      ]
+    }
+  ]
+}
